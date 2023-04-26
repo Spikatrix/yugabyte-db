@@ -1204,6 +1204,7 @@ components:
         is_master_up: true
         is_master: true
         is_tserver: true
+        is_read_replica: true
         is_node_up: true
         name: name
         host: host
@@ -1245,6 +1246,8 @@ components:
           type: boolean
         is_tserver:
           type: boolean
+        is_read_replica:
+          type: boolean
         is_master_up:
           type: boolean
         is_bootstrapping:
@@ -1263,6 +1266,7 @@ components:
       - is_master_up
       - is_node_up
       - is_tserver
+      - is_read_replica
       - metrics
       - name
       - software_version
@@ -1471,6 +1475,7 @@ components:
         - is_master_up: true
           is_master: true
           is_tserver: true
+          is_read_replica: true
           is_node_up: true
           name: name
           host: host
@@ -1502,6 +1507,7 @@ components:
         - is_master_up: true
           is_master: true
           is_tserver: true
+          is_read_replica: true
           is_node_up: true
           name: name
           host: host
