@@ -1,29 +1,29 @@
-import React, { Component, FC, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Layer, Rectangle, Sankey, Tooltip } from 'recharts';
-import { ClusterData, useGetClusterNodesQuery } from '@app/api/src';
-import { AXIOS_INSTANCE } from '@app/api/src';
-import { Box, LinearProgress, Link, makeStyles } from '@material-ui/core';
-import { Link as RouterLink } from 'react-router-dom';
-import { getInterval, RelativeInterval } from '@app/helpers';
-import { getUnixTime } from 'date-fns';
-import { StringParam, useQueryParams, withDefault } from 'use-query-params';
+import React, { Component, FC, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { Layer, Rectangle, Sankey, Tooltip } from "recharts";
+import { ClusterData, useGetClusterNodesQuery } from "@app/api/src";
+import { AXIOS_INSTANCE } from "@app/api/src";
+import { Box, LinearProgress, Link, makeStyles } from "@material-ui/core";
+import { Link as RouterLink } from "react-router-dom";
+import { getInterval, RelativeInterval } from "@app/helpers";
+import { getUnixTime } from "date-fns";
+import { StringParam, useQueryParams, withDefault } from "use-query-params";
 
 const useStyles = makeStyles((theme) => ({
   link: {
-    '&:link, &:focus, &:active, &:visited, &:hover': {
-      textDecoration: 'none',
+    "&:link, &:focus, &:active, &:visited, &:hover": {
+      textDecoration: "none",
       color: theme.palette.text.primary,
-    }
+    },
   },
 }));
 
 interface VCpuUsageSankey {
-  cluster: ClusterData,
-  height?: number,
-  width?: number,
-  sankeyProps?: Partial<typeof Sankey['defaultProps'] & { cursor: string }>,
-  showTooltip?: boolean,
+  cluster: ClusterData;
+  height?: number;
+  width?: number;
+  sankeyProps?: Partial<(typeof Sankey)["defaultProps"] & { cursor: string }>;
+  showTooltip?: boolean;
 }
 
 /* Data format for sankey charts
@@ -44,30 +44,35 @@ const data = {
 
 */
 
-export const VCpuUsageSankey: FC<VCpuUsageSankey> = ({ cluster, sankeyProps, showTooltip, height, width }) => {
+export const VCpuUsageSankey: FC<VCpuUsageSankey> = ({
+  cluster,
+  sankeyProps,
+  showTooltip,
+  height,
+  width,
+}) => {
   const { t } = useTranslation();
   const { data: nodesResponse, isFetching } = useGetClusterNodesQuery({});
 
   const [{ nodeName, clusterType, region: regionParam }] = useQueryParams({
-    nodeName: withDefault(StringParam, 'all'),
-    region: withDefault(StringParam, ''),
+    nodeName: withDefault(StringParam, "all"),
+    region: withDefault(StringParam, ""),
     clusterType: StringParam,
   });
 
-  const [region, zone] = regionParam ? regionParam.split('#') : ['', ''];
+  const [region, zone] = regionParam ? regionParam.split("#") : ["", ""];
 
-  const filteredNode = nodeName === 'all' || nodeName === '' || !nodeName ? undefined : nodeName;
-  const isReadReplica = clusterType === 'READ_REPLICA';
+  const filteredNode = nodeName === "all" || nodeName === "" || !nodeName ? undefined : nodeName;
+  const isReadReplica = clusterType === "READ_REPLICA";
 
   const nodeList = React.useMemo(
     () =>
-      (clusterType
+      clusterType
         ? nodesResponse?.data.filter(
             (node) =>
               (isReadReplica && node.is_read_replica) || (!isReadReplica && !node.is_read_replica)
           )
-        : nodesResponse?.data
-      ),
+        : nodesResponse?.data,
     [nodesResponse, clusterType, isReadReplica]
   );
 
@@ -81,13 +86,18 @@ export const VCpuUsageSankey: FC<VCpuUsageSankey> = ({ cluster, sankeyProps, sho
     }
 
     if (region && zone) {
-      return nodeList.filter((node) => node.cloud_info.region === region && node.cloud_info.zone === zone).map(node => node.name);
+      return nodeList
+        .filter((node) => node.cloud_info.region === region && node.cloud_info.zone === zone)
+        .map((node) => node.name);
     }
 
     return [];
-  }, [nodeList, filteredNode, region, zone])
+  }, [nodeList, filteredNode, region, zone]);
 
-  const totalCores = Math.round((cluster.spec?.cluster_info?.node_info.num_cores ?? 0) / (nodesResponse?.data.length ?? 1) * (nodeList?.length ?? 0))
+  const totalCores = Math.round(
+    ((cluster.spec?.cluster_info?.node_info.num_cores ?? 0) / (nodesResponse?.data.length ?? 1)) *
+      (nodeList?.length ?? 0)
+  );
 
   const [nodeCpuUsage, setNodeCpuUsage] = React.useState<number[]>();
   React.useEffect(() => {
@@ -100,25 +110,35 @@ export const VCpuUsageSankey: FC<VCpuUsageSankey> = ({ cluster, sankeyProps, sho
         try {
           const interval = getInterval(RelativeInterval.LastHour);
           // Get the system and user cpu usage of the node from the metrics endpoint
-          const cpu = await AXIOS_INSTANCE.get(`/metrics?metrics=CPU_USAGE_SYSTEM%2CCPU_USAGE_USER&node_name=${nodeName}` +
-            `&start_time=${getUnixTime(interval.start)}&end_time=${getUnixTime(interval.end)}`)
+          const cpu = await AXIOS_INSTANCE.get(
+            `/metrics?metrics=CPU_USAGE_SYSTEM%2CCPU_USAGE_USER&node_name=${nodeName}` +
+              `&start_time=${getUnixTime(interval.start)}&end_time=${getUnixTime(interval.end)}`
+          )
             // Add the system and user cpu usage to get the total cpu usage
             .then(({ data }) => {
               const cpuUsageSystemArr = data.data[0].values as any[];
-              const cpuUsageSystem = Number((cpuUsageSystemArr.reverse().find(val => val[1] !== undefined) ?? [])[1]) || 0;
+              const cpuUsageSystem =
+                Number(
+                  (cpuUsageSystemArr.reverse().find((val) => val[1] !== undefined) ?? [])[1]
+                ) || 0;
 
               const cpuUsageUserArr = data.data[1].values as any[];
-              const cpuUsageUser = Number((cpuUsageUserArr.reverse().find(val => val[1] !== undefined) ?? [])[1]) || 0;
+              const cpuUsageUser =
+                Number((cpuUsageUserArr.reverse().find((val) => val[1] !== undefined) ?? [])[1]) ||
+                0;
 
-              return (cpuUsageSystem + cpuUsageUser);
+              return cpuUsageSystem + cpuUsageUser;
             })
-            .catch(err => { console.error(err); return 0; })
+            .catch((err) => {
+              console.error(err);
+              return 0;
+            });
           return cpu;
         } catch (err) {
           console.error(err);
           return 0;
         }
-      }
+      };
 
       const cpuUsage: number[] = [];
       for (let i = 0; i < nodeList.length; i++) {
@@ -129,52 +149,88 @@ export const VCpuUsageSankey: FC<VCpuUsageSankey> = ({ cluster, sankeyProps, sho
       }
 
       setNodeCpuUsage(cpuUsage);
-    }
+    };
 
     populateCpu();
-  }, [nodeList])
+  }, [nodeList]);
 
   const data = useMemo(() => {
     if (nodeCpuUsage === undefined) {
       return undefined;
     }
 
-    const data =  {
+    // Number of nodes on the left side
+    const leftNodes = [
+      // Usage node
+      { name: "Usage" },
+      // Available node
+      { name: "Available" },
+      // Total node
+      { name: "Total" },
+    ];
+
+    const data = {
       nodes: [
-        // Usage node
-        { "name": "Usage" },
-        // Available node
-        { "name": "Available" },
+        ...leftNodes,
         // Nodes
-        ...(nodeList?.map(({ name, cloud_info: { zone }, is_read_replica: isReadReplica }) => ({ name, zone, isReadReplica })) ?? []),
+        ...(nodeList?.map(({ name, cloud_info: { zone }, is_read_replica: isReadReplica }) => ({
+          name,
+          zone,
+          isReadReplica,
+        })) ?? []),
         // Dummy node for available cores
-        { "name": "" },
+        { name: "" },
       ],
-      links: [ ...(nodeList?.map((_, index) => ({
-        // Start all links from the usage node
-        "source": 0,
-        // Target the corresponding node
-        "target": index + 2,
-        // Convert node cpu usage to two decimal places
-        "value": !nodeCpuUsage[index] || nodeCpuUsage[index] < 1 ? 1 : Math.round(nodeCpuUsage[index] * 100) / 100 }
-      )) ?? []),
-      // Dummy link for the available cores node
-      { "source": 1, "target": (nodeList ? nodeList.length : 0) + 2, value: 0 }
-    ],
-    }
+      links: [
+        { source: 0, target: 2, value: 0 },
+        { source: 1, target: 2, value: 0 },
+        ...(nodeList?.map((_, index) => ({
+          // Start all links from the usage node
+          source: 2,
+          // Target the corresponding node
+          target: index + leftNodes.length,
+          // Convert node cpu usage to two decimal places
+          value:
+            !nodeCpuUsage[index] || nodeCpuUsage[index] < 1
+              ? 1
+              : Math.round(nodeCpuUsage[index] * 100) / 100,
+        })) ?? []),
+        // Dummy link for the available cores node to the invisible node on the right
+        { source: 2, target: (nodeList ? nodeList.length : 0) + leftNodes.length, value: 0 },
+      ],
+    };
 
     // Calculate cpu usage and available cpu values
     const totalCpuUsage = data["links"].slice(0, -1).reduce((acc, curr) => acc + curr.value, 0);
-    const cpuUsage = Math.ceil(totalCpuUsage / (nodeList?.length ?? 1) * totalCores / 100);
+    const cpuUsage = Math.ceil(((totalCpuUsage / (nodeList?.length ?? 1)) * totalCores) / 100);
     const cpuAvailable = totalCores - cpuUsage;
 
+    console.log(
+      "cpuUsage=",
+      cpuUsage,
+      "cpuAvailable=",
+      cpuAvailable,
+      "totalCores=",
+      totalCores,
+      "totalCpuUsage=",
+      totalCpuUsage,
+      "nodeList=",
+      nodeList,
+      "nodeCpuUsage=",
+      nodeCpuUsage
+    );
+
     // Update data values as per the calculation performed
-    data["links"][data["links"].length - 1].value = Math.round(totalCpuUsage / cpuUsage * cpuAvailable);
-    data["nodes"][0].name = t('clusterDetail.overview.usedCores', { usage: cpuUsage });
-    data["nodes"][1].name = t('clusterDetail.overview.availableCores', { available: cpuAvailable });
+    data["links"][data["links"].length - 1].value = Math.round(
+      totalCpuUsage / (cpuUsage * cpuAvailable)
+    );
+    data["nodes"][0].name = t("clusterDetail.overview.usedCores", { usage: cpuUsage });
+    data["nodes"][1].name = t("clusterDetail.overview.availableCores", { available: cpuAvailable });
+    data["links"][0].value = cpuUsage;
+    data["links"][1].value = cpuAvailable;
 
     return data;
-  }, [nodeCpuUsage, nodeList])
+  }, [nodeCpuUsage, nodeList]);
 
   if (isFetching || data === undefined) {
     return (
@@ -207,40 +263,105 @@ export const VCpuUsageSankey: FC<VCpuUsageSankey> = ({ cluster, sankeyProps, sho
   );
 };
 
-
 function CpuSankeyNode(props: any) {
   const classes = useStyles();
 
   const { x, y, width, height, index, payload, highlightNodes, totalCores } = props;
   const isLeftNode = index <= 1;
+  const isCenterNode = index === 2;
+  const isRightNode = index >= 3;
 
   const hasHighlight = !!highlightNodes?.length;
   const highlightNode = highlightNodes?.includes(payload.name);
 
   const { isReadReplica } = payload;
-  const splitPayload = payload.name.split(' ') as string[];
+  const splitPayload = payload.name.split(" ") as string[];
   const cpuTextPrefix = splitPayload[0].toUpperCase();
-  const cpuValue = Number(splitPayload[1])
-  const cpuTextSuffix = splitPayload.slice(2).join(' ');
+  const cpuValue = Number(splitPayload[1]);
+  const cpuTextSuffix = splitPayload.slice(2).join(" ");
+
+  if (isCenterNode) {
+    console.log(payload);
+  }
 
   if (!payload.name) {
     return null;
   }
 
   return (
-    <Layer key={`CustomNode${index}`} opacity={!hasHighlight ? 1 :
-      (((isLeftNode && index === 0) || (!isLeftNode && highlightNode)) ? 1 : 0.4 )}>
+    <Layer
+      key={`CustomNode${index}`}
+      opacity={
+        !hasHighlight ? 1 : (isLeftNode && index === 0) || (!isLeftNode && highlightNode) ? 1 : 0.4
+      }
+    >
       <Rectangle
-        x={x} y={y} opacity={isLeftNode ? (!hasHighlight ? 1 : 0.4) : undefined}
-        width={width} height={height}
+        x={x}
+        y={y}
+        opacity={isLeftNode ? (!hasHighlight ? 1 : 0.4) : undefined}
+        width={width}
+        height={height}
         fill={isLeftNode ? "#2B59C3" : "#8047F5"}
-        fillOpacity={isLeftNode ? 0.6 : 0.5} />
-      {!isLeftNode ?
+        fillOpacity={isLeftNode ? 0.6 : 0.5}
+      />
+      {isLeftNode && !isRightNode && !isCenterNode && (
+        // Left node
+        <text
+          textAnchor="end"
+          x={x - 10}
+          y={y + height / 2 + width / 2 - 5}
+          fontSize="13"
+          fontWeight={500}
+        >
+          <tspan fill="#97A5B0">{cpuTextPrefix}</tspan>{" "}
+          {/* USED or AVAILABLE depending on index = 0 or 1 */}
+          <tspan
+            dx={index === 0 ? (cpuValue < 10 ? 102 : 92) : cpuValue < 10 ? 68 : 60}
+            fill="#000"
+            fontWeight={700}
+            fontSize="15"
+          >
+            {cpuValue}{" "}
+          </tspan>{" "}
+          {/* number */}
+          <tspan
+            dy={15}
+            dx={totalCores < 10 ? -52 : -56}
+            fill="#333"
+            fontSize={10}
+            fillOpacity={0.6}
+          >
+            of {totalCores} {cpuTextSuffix} {/* of number cores */}
+          </tspan>
+        </text>
+      )}
+      {isCenterNode && !isLeftNode && !isRightNode && (
+        // Center node
+        <text
+          textAnchor={"start"}
+          x={x + width - 20}
+          y={y + height / 2 + width / 2 + 3}
+          fontSize="12"
+          stroke="#888"
+          strokeOpacity="0.5"
+        >
+          <tspan>{payload.value}</tspan>
+          <tspan dy={15} dx={-14} fill="#333" fontSize={10} fillOpacity={0.6}>
+            total cores
+          </tspan>
+        </text>
+      )}
+      {isRightNode && !isLeftNode && !isCenterNode && (
         // Right node
-        <Link className={classes.link} component={RouterLink}
-          to={`/performance/metrics?nodeName=${payload.name}&region=&clusterType=${isReadReplica ? 'READ_REPLICA' : 'PRIMARY'}`}>
+        <Link
+          className={classes.link}
+          component={RouterLink}
+          to={`/performance/metrics?nodeName=${payload.name}&region=&clusterType=${
+            isReadReplica ? "READ_REPLICA" : "PRIMARY"
+          }`}
+        >
           <text
-            textAnchor={'start'}
+            textAnchor={"start"}
             x={x + width + 15}
             y={y + height / 2 + width / 2 + 3}
             fontSize="12"
@@ -248,36 +369,33 @@ function CpuSankeyNode(props: any) {
             strokeOpacity="0.5"
           >
             <tspan dx={payload.value < 10 ? 6 : 0}>{payload.value}%</tspan>
-            <tspan dx={16}>{payload.name} {payload.zone && `(${payload.zone})`}</tspan>
+            <tspan dx={16}>
+              {payload.name} {payload.zone && `(${payload.zone})`}
+            </tspan>
           </text>
         </Link>
-        :
-        // Left node
-        <text
-          textAnchor='end'
-          x={x - 10}
-          y={y + height / 2 + width / 2 - 5}
-          fontSize="13"
-          fontWeight={500}
-        >
-          <tspan fill="#97A5B0">{cpuTextPrefix}</tspan> {/* USED or AVAILABLE depending on index = 0 or 1 */}
-          <tspan dx={index === 0 ? (cpuValue < 10 ? 102 : 92) : (cpuValue < 10 ? 68 : 60)}
-            fill="#000" fontWeight={700} fontSize="15">{cpuValue} </tspan> {/* number */}
-          <tspan dy={15} dx={totalCores < 10 ? -52 : -56} fill="#333" fontSize={10} fillOpacity={0.6}>
-            of {totalCores} {cpuTextSuffix} {/* of number cores */}
-          </tspan>
-        </text>
-      }
+      )}
     </Layer>
   );
 }
 
 class CpuSankeyLink extends Component<any, any> {
-  static displayName = 'CpuSankeyLink';
+  static displayName = "CpuSankeyLink";
 
   render() {
-    const { sourceX, targetX, sourceY, targetY, sourceControlX, targetControlX, linkWidth,
-      highlightNodes, index, nodeWidth, payload } = this.props;
+    const {
+      sourceX,
+      targetX,
+      sourceY,
+      targetY,
+      sourceControlX,
+      targetControlX,
+      linkWidth,
+      highlightNodes,
+      index,
+      nodeWidth,
+      payload,
+    } = this.props;
 
     const hasHighlight = !!highlightNodes?.length;
     const highlightNode = highlightNodes?.includes(payload.target.name);
@@ -287,12 +405,13 @@ class CpuSankeyLink extends Component<any, any> {
     }
 
     const { isReadReplica } = payload.target;
+    const enableLinkClick = payload.target.name !== "Total";
 
     const gradientID = `linkGradient${index}`;
     const fill = this.state?.fill ?? `url(#${gradientID})`;
 
     return (
-      <Layer key={`CustomLink${index}`} opacity={!hasHighlight ? 1 : (highlightNode ? 1 : 0.4)}>
+      <Layer key={`CustomLink${index}`} opacity={!hasHighlight ? 1 : highlightNode ? 1 : 0.4}>
         <defs>
           <linearGradient id={gradientID}>
             <stop offset="20%" stopColor={"#2B59C3"} stopOpacity={"0.18"} />
@@ -300,8 +419,37 @@ class CpuSankeyLink extends Component<any, any> {
           </linearGradient>
         </defs>
 
-        <Link component={RouterLink}
-          to={`/performance/metrics?nodeName=${payload.target.name}&region=&clusterType=${isReadReplica ? 'READ_REPLICA' : 'PRIMARY'}`}>
+        {enableLinkClick && (
+          <Link
+            component={RouterLink}
+            to={`/performance/metrics?nodeName=${payload.target.name}&region=&clusterType=${
+              isReadReplica ? "READ_REPLICA" : "PRIMARY"
+            }`}
+          >
+            <path
+              d={`
+              M${sourceX},${sourceY + linkWidth / 2}
+              C${sourceControlX},${sourceY + linkWidth / 2}
+                ${targetControlX},${targetY + linkWidth / 2}
+                ${targetX},${targetY + linkWidth / 2}
+              L${targetX},${targetY - linkWidth / 2}
+              C${targetControlX},${targetY - linkWidth / 2}
+                ${sourceControlX},${sourceY - linkWidth / 2}
+                ${sourceX},${sourceY - linkWidth / 2}
+              Z
+            `}
+              fill={fill}
+              onMouseEnter={() => {
+                this.setState({ fill: "rgba(0, 136, 254, 0.5)" });
+              }}
+              onMouseLeave={() => {
+                this.setState({ fill: `url(#${gradientID})` });
+              }}
+            />
+          </Link>
+        )}
+
+        {!enableLinkClick && (
           <path
             d={`
               M${sourceX},${sourceY + linkWidth / 2}
@@ -315,22 +463,19 @@ class CpuSankeyLink extends Component<any, any> {
               Z
             `}
             fill={fill}
-            onMouseEnter={() => {
-              this.setState({ fill: 'rgba(0, 136, 254, 0.5)' });
-            }}
-            onMouseLeave={() => {
-              this.setState({ fill: `url(#${gradientID})` });
-            }}
           />
-        </Link>
+        )}
 
-        {hasHighlight && highlightNode &&
+        {hasHighlight && highlightNode && (
           <Rectangle
-            x={sourceX - nodeWidth} y={sourceY - linkWidth / 2}
-            width={nodeWidth} height={linkWidth}
+            x={sourceX - nodeWidth}
+            y={sourceY - linkWidth / 2}
+            width={nodeWidth}
+            height={linkWidth}
             fill={"#2B59C3"}
-            fillOpacity={0.6} />
-        }
+            fillOpacity={0.6}
+          />
+        )}
       </Layer>
     );
   }

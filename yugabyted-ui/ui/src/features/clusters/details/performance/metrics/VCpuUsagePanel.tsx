@@ -43,7 +43,7 @@ export const VCpuUsagePanel: FC<VCpuUsagePanelProps> = ({ cluster }) => {
           height={200}
           sankeyProps={{
             margin: {
-              top: 6,
+              top: 10,
               left: 168,
               right: 225,
               bottom: 5,
